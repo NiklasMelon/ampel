@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>FSD Ampelsteuerung</title>
+<style>
+body { font-family: Segoe UI, Arial, Helvetica, sans-serif; background: #f9f9f9; color: #222; margin: 0; padding: 0; }
+main { max-width: 1000px; margin: 24px auto; padding: 24px; background: #fff; border: 1px solid #ddd; box-shadow: 0 0 15px rgba(0,0,0,.05); }
+h1 { margin-top: 0; }
+pre { white-space: pre-wrap; word-wrap: break-word; background: #f7f7f7; padding: 18px; border-radius: 6px; overflow: auto; font-size: 14px; line-height: 1.6; border: 1px solid #ccc; }
+</style>
+</head>
+<body>
+<main>
+<h1>FSD Ampelsteuerung</h1>
+<pre>
+# Funktionsspezifikation: Ampelsteuerung
+
+## 1. Zweck
+Das Dokument beschreibt die funktionalen Anforderungen, Systemkomponenten und Benutzerinteraktionen der aktuellen Ampelsteuerungssimulation in C++ mit SFML.
+
+## 2. Projektumfang
+Die Anwendung simuliert eine Kreuzung mit vier Fahrzeugampeln und vier Fussgaengerampeln. Die Steuerung erfolgt ueber virtuelle Bodenkontakte und Fussgaengertaster, die per Mausklick aktiviert werden. Zusaeätzlich werden Fahrzeuge visualisiert und Kollisionen erkannt.
+
+## 3. Stakeholder
+- Anwender / Testnutzer: Bedienen die Simulation mit Mausinteraktionen
+- Entwickler: Pflegen die Ampelsteuerungslogik und GUI
+- Projektleiter: Bewertet Vollstaendigkeit und Funktionalitaet
+
+## 4. Systemuebersicht
+Die Ampelsteuerung besteht aus folgenden Komponenten:
+- `Ampel` (einzelne Ampel mit Fahrzeug- und Fussgaengerzustand)
+- `Kreuzung` (vier Ampeln, Phasensteuerung, Eingabeverarbeitung)
+- `AmpelGUI` (Darstellung, Interaktion, Fahrzeuganimation)
+- `main.cpp` (Programmstart, Initialisierung)
+- `ampel_config.txt` (konfigurierbare Schaltzeiten)
+
+## 5. Funktionale Anforderungen
+
+### 5.1 Ampelstatus
+- Jede Ampel hat einen Fahrzeugstatus (`Rot`, `RotGelb`, `Gelb`, `Gruen`, `Aus`).
+- Jede Ampel hat einen Fussgaengerstatus (`Rot`, `Gruen`, `Aus`).
+- Der Zustand jedes Signals wird in `AmpelZustand` gespeichert.
+
+### 5.2 Bodenkontakte
+- Vier virtuelle Bodenkontaktbereiche existieren: Nord, Sued, Ost, West.
+- Ein Klick auf eine Kontaktflaeche toggelt den Status (`aktiv` / `inaktiv`).
+- Aktive Bodenkontakte beeinflussen die Phasenwahl der zugehoerigen Fahrtrichtung.
+
+### 5.3 Fussgaengertaster
+- Vier Fussgaengertaster existieren: Nord, Sued, Ost, West.
+- Ein Klick auf einen Taster setzt die Fussgaengeranforderung fuer die jeweilige Richtung.
+- Fussgaengeranforderungen bleiben bestehen, bis sie nach einer gruene Fussgaengerphase zurueckgesetzt werden.
+
+### 5.4 Phasensteuerung
+- Die Steuerung verwendet feste Phasen fuer Nord-Sued und Ost-West:
+  - `NS_AutoGruen`
+  - `NS_RotGelb`
+  - `NS_Gelb`
+  - `NS_FussgaengerWarte`
+  - `NS_FussgaengerGruen`
+  - `All_Rot`
+  - `EW_AutoGruen`
+  - `EW_RotGelb`
+  - `EW_Gelb`
+  - `EW_FussgaengerWarte`
+  - `EW_FussgaengerGruen`
+- Jeder Phasenuebergang wird zeitgesteuert durch `AmpelKonfiguration`.
+- Standardzeiten (falls `ampel_config.txt` fehlt) sind:
+  - AutoGruen: 8 s
+  - RotGelb: 2 s
+  - Gelb: 2 s
+  - FussgaengerWarte: 2 s
+  - FussgaengerGruen: 5 s
+  - AllRot: 1 s
+
+### 5.5 Phasenuebergangslogik
+- In der Phase `NS_AutoGruen` leuchten die Fahrzeugampeln fuer Nord und Sued gruen.
+- In der Phase `EW_AutoGruen` leuchten die Fahrzeugampeln fuer Ost und West gruen.
+- Nach `NS_RotGelb` bzw. `EW_RotGelb` folgt die jeweilige `Gelb`-Phase.
+- Nach `NS_Gelb` bzw. `EW_Gelb` wird geprueft, ob Fussgaengeranforderungen fuer die gerade aktive Richtung vorliegen.
+- Liegt eine Fussgaengeranforderung vor, wird `NS_FussgaengerWarte` bzw. `EW_FussgaengerWarte` gestartet.
+- Nach der Wartephase folgt `NS_FussgaengerGruen` bzw. `EW_FussgaengerGruen`.
+- Nach `NS_FussgaengerGruen` bzw. `EW_FussgaengerGruen` werden die entsprechenden Fussgaengeranforderungen zurueckgesetzt.
+- In `All_Rot` entscheidet die naechste Richtung anhand aktiver Anforderungen und der zuletzt ausgefuehrten Richtung.
+  - Bei beiden Anforderungsrichtungen wechselt die Phase alternierend.
+  - Ist nur eine Richtung angefordert, wird diese Richtung aktiviert.
+
+### 5.6 Fahrzeuge und Kollisionserkennung
+- Vier Fahrzeuge bewegen sich in Richtung ihrer Ampel, wenn deren Fahrzeugampel gruen ist.
+- Fahrzeuge starten ausserhalb des Kreuzungsbereichs und fahren ueber die Strasse.
+- Ueberschreiten Fahrzeuge die Fenstergrenzen, werden sie an ihre Startposition zurueckgesetzt.
+- Ueberschneiden sich die Fahrzeuggrenzen, wird eine Kollisionswarnung angezeigt.
+
+## 6. Benutzeroberflaeche
+
+### 6.1 Anzeige
+- Das Fenster zeigt zwei Strassen als graue Rechtecke (horizontal und vertikal).
+- Jede Fahrzeugampel wird als Gehaeuse mit drei Kreisen dargestellt.
+- Jede Fussgaengerampel wird als Gehaeuse mit zwei Kreisen dargestellt.
+- Bodenkontaktfelder und Fussgaengertaster sind farblich hervorgehoben.
+- Eine Legende und Statustexte zeigen die aktuelle Phase und Hinweise.
+- Bei Kollisionen erscheint eine rote Warnmeldung.
+
+### 6.2 Interaktion
+- Links klicken auf eine Kontaktflaeche toggelt den Bodenkontakt.
+- Links klicken auf einen Taster aktiviert die Fussgaengeranforderung.
+- Tasteranforderungen bleiben aktiv, bis sie nach einer Fussgaengerphase verarbeitet werden.
+
+## 7. Zustandsdiagramm (logisch)
+- Start: `All_Rot`, alle Ampeln rot, keine Anforderungen aktiv.
+- In `NS_AutoGruen` laeuft der Timer fuer die Nord-Sued-Gruenphase.
+- Nach `NS_AutoGruen` folgt `NS_RotGelb`, dann `NS_Gelb`.
+- Nach `NS_Gelb`:
+  - bei Fussgaengeranforderung fuer Nord/Sued: `NS_FussgaengerWarte`
+  - sonst: `All_Rot`
+- Nach `NS_FussgaengerWarte` folgt `NS_FussgaengerGruen`.
+- Nach `NS_FussgaengerGruen` wird die Fussgaengeranforderung geloescht und `All_Rot` gestartet.
+- Analog fuer die Ost-West-Phase.
+- In `All_Rot` erfolgt die naechste Phase basierend auf aktiven Anforderungen und der letzten Richtung.
+
+## 8. Nicht-funktionale Anforderungen
+- Die Anwendung reagiert interaktiv und fluessig auf Mausereignisse.
+- Die GUI verwendet SFML 2.5.
+- Ein Windows-Systemfont wird aus `C:\Windows\Fonts` geladen (`arial.ttf`, `segoeui.ttf`, `verdana.ttf`).
+- Fehlt ein Font, bleiben die Simulation und die Logik funktionsfaehig; nur Texte werden nicht dargestellt.
+- Schaltzeiten sind in `ampel_config.txt` konfigurierbar.
+- Die Implementierung ist klar strukturiert und erweiterbar.
+
+## 9. Architektur
+
+### 9.1 Klassen
+- `Ampel`
+  - Attribute: `Richtung`, `horizontal`, `AmpelZustand`
+  - Methoden: `setAutoAmpel`, `setFussgaengerAmpel`, `setBodenkontakt`, `setTaster`, `getAutoAmpel`, `getFussgaengerAmpel`, `getBodenkontakt`, `getTaster`, `getZustand`
+
+- `Kreuzung`
+  - Attribute: `std::vector<Ampel> ampeln`, `AmpelKonfiguration konfiguration`, `AmpelPhase aktuellePhase`, `float phasenTimer`, `bool letztePhaseWarNS`
+  - Methoden: `getAmpel`, `setBodenkontakt`, `setTaster`, `aktualisiere`, `getAktuellePhase`, `ladeKonfiguration`, `schalteAmpeln`, `pruefeFussgaengerAnforderung`, `hatAufforderungNS`, `hatAufforderungEW`, `loescheFussgaengerAufforderungenNS`, `loescheFussgaengerAufforderungenEW`
+
+- `AmpelGUI`
+  - Attribute: `sf::RenderWindow fenster`, `Kreuzung* kreuzung`, `sf::Font font`, `bool fontLoaded`, `sf::Text titelText`, `sf::Text infoText`, `sf::Text legendeText`, `sf::Text kontaktText[4]`, `sf::Text tasterText[4]`, `sf::Text statusText`, `sf::RectangleShape strassen[2]`, `sf::RectangleShape kontaktSchalter[4]`, `sf::RectangleShape taster[4]`, `std::vector<Fahrzeug> fahrzeuge`, `bool kollisionsWarnung`
+  - Methoden: `initialisiere`, `setKreuzung`, `run`, `aktualisiereAnzeige`, `zeichneAmpel`, `zeichneFussgaengerAmpel`, `aktualisiereFahrzeuge`, `initialisiereFahrzeuge`, `zeichneLegende`, `istInForm`, `istInKreis`
+
+### 9.2 Datenmodelle
+- `AmpelPhase`: definiert alle Kreuzungsphasen.
+- `AmpelKonfiguration`: speichert die Dauer einzelner Phasen.
+- `AmpelZustand`: hält Fahrzeugampel, Fussgaengerampel, Bodenkontakt und Tasterzustand.
+- `Fahrzeug`: beschreibt visuelle Fahrzeuge, Startposition, Geschwindigkeit und Richtung.
+
+## 10. Build & Ausführung
+- `build.bat` oder CMake erzeugen die ausführbare Datei.
+- Kompiliert werden `Ampelsteuerung.cpp` und `main.cpp`.
+- Die ausführbare Datei liegt im `build`-Verzeichnis (`Release` oder `Debug`).
+- Benötigte DLLs: `sfml-graphics-2.dll`, `sfml-window-2.dll`, `sfml-system-2.dll`, `openal32.dll`
+- `ampel_config.txt` verwendet folgende Schlüssel:
+  - `AutoGruen`, `RotGelb`, `Gelb`, `FussgaengerWarte`, `FussgaengerGruen`, `AllRot`
+
+## 11. Erweiterungspotential
+- Zusätzliche Ampelphasen für Fussgaenger mit Countdown-Anzeige
+- Bessere Erkennung von Fahrzeugrouten und Kreuzungsetiketten
+- Ergänzung von Sonderfahrzeugphasen
+- Protokollierung von Schaltphasen
+- Erweiterung der GUI mit interaktiven Schaltflächen und Meldungen
+</pre>
+</main>
+</body>
+</html>
