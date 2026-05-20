@@ -1,0 +1,46 @@
+digraph ActivityDiagram {
+  rankdir=TB;
+  node [shape=box, style=rounded, fontname="Arial"];
+  start [label="Start", shape=circle, fixedsize=true, width=0.5];
+  init [label="Alle Ampeln auf Rot setzen\nAnforderungen löschen"];
+  wait [label="Auf Timer oder Benutzerereignis warten"];
+  input1 [label="Bodenkontakt klickt:\nStatus toggeln"];
+  input2 [label="Fußgänger-Taster klickt:\nAnforderung setzen"];
+  update [label="Fahrzeuge bei Grün bewegen\nKollision prüfen"];
+  choose [label="Nächste Richtung wählen?\n(NS oder EW)", shape=diamond];
+  nsauto [label="NS_AutoGruen\n(N/S-Fahrzeuge grün)"];
+  nsrotgelb [label="NS_RotGelb"];
+  nsgelb [label="NS_Gelb"];
+  checkns [label="Fußgängeranforderung für N/S?", shape=diamond];
+  nswait [label="NS_FußgängerWarte"];
+  nsfgreen [label="NS_FußgängerGruen"];
+  resetns [label="NS-Anforderung löschen"];
+  ewauto [label="EW_AutoGruen\n(O/W-Fahrzeuge grün)"];
+  ewrotgelb [label="EW_RotGelb"];
+  ewgelb [label="EW_Gelb"];
+  checkew [label="Fußgängeranforderung für O/W?", shape=diamond];
+  ewwait [label="EW_FußgängerWarte"];
+  ewfgreen [label="EW_FußgängerGruen"];
+  resete w [label="EW-Anforderung löschen"];
+  back [label="Zur All_Rot-Phase zurückkehren"];
+  end [label="Ende", shape=doublecircle, fixedsize=true, width=0.5];
+
+  start -> init -> wait;
+  wait -> input1;
+  wait -> input2;
+  input1 -> wait;
+  input2 -> wait;
+  wait -> update -> choose;
+  choose -> nsauto [label="NS ausgewählt"];
+  choose -> ewauto [label="EW ausgewählt"];
+  nsauto -> nsrotgelb -> nsgelb -> checkns;
+  checkns -> nswait [label="Ja"];
+  checkns -> back [label="Nein"];
+  nswait -> nsfgreen -> resetns -> back;
+  ewauto -> ewrotgelb -> ewgelb -> checkew;
+  checkew -> ewwait [label="Ja"];
+  checkew -> back [label="Nein"];
+  ewwait -> ewfgreen -> resete_w -> back;
+  back -> wait;
+  back -> end;
+}
